@@ -1,9 +1,6 @@
 #!/usr/bin/env crystal
 # -*- coding: utf-8 -*-
-# A little Scheme in Crystal 0.33, v0.1 R02.03.17 by SUZUKI Hisao
-# cf. https://github.com/nukata/little-scheme-in-ruby
-#     https://github.com/nukata/little-scheme-in-java
-#     https://github.com/nukata/little-scheme-in-php
+# A Little Scheme in Crystal 0.34, v0.2 R02.03.17/R02.04.08 by SUZUKI Hisao
 
 require "big"
 
@@ -94,6 +91,12 @@ module LittleScheme
   # A unique value which means the End Of File
   EOF = NamedObj.new("#<EOF>")
 
+  # A unique value which represents the call/cc procedure
+  CALLCC_OBJ = NamedObj.new("#<call/cc>")
+
+  # A unique value which represents the apply procedure
+  APPLY_OBJ = NamedObj.new("#<apply>")
+
   # Scheme's symbol
   class Sym < NamedObj
     private SYMBOLS = {} of String => Sym
@@ -150,6 +153,16 @@ module LittleScheme
     def initialize(@tail)
     end
   end # ImproperListException
+
+  # Get the first element of x.
+  macro fst(x)
+    {{x}}.as(Cell).car
+  end
+
+  # Get the second element of x.
+  macro snd(x)
+    {{x}}.as(Cell).cdr.as(Cell).car
+  end
 
   # ----------------------------------------------------------------------
 
@@ -345,24 +358,6 @@ i    case exp
 
   # ----------------------------------------------------------------------
 
-  private macro c(name, arity, body, succ)
-    Environment.new(Sym.interned({{name}}),
-                    Intrinsic.new({{name}}, {{arity}}, ->(x : Cell?) {{body}}),
-                    {{succ}})
-  end
-
-  private macro fst(x)
-    {{x}}.as(Cell).car
-  end
-
-  private macro snd(x)
-    {{x}}.as(Cell).cdr.as(Cell).car
-  end
-
-  private macro val(x)
-    ({{x}}).as(Val)
-  end
-
   # Return a list of symbols of the global environment.
   private def self.globals
     j = nil
@@ -378,8 +373,8 @@ i    case exp
   private def self.display(exp)
     begin
       print stringify(exp, false)
-    rescue ex: Errno
-      raise ErrorException.new(ex.message, NONE) if ex.errno == Errno::EPIPE
+    rescue ex: IO::Error
+      raise ErrorException.new(ex.message, NONE) if ex.os_error == Errno::EPIPE
       raise ex
     end
     return NONE
@@ -388,8 +383,8 @@ i    case exp
   private def self.newline
     begin
       puts
-    rescue ex: Errno
-      raise ErrorException.new(ex.message, NONE) if ex.errno == Errno::EPIPE
+    rescue ex: IO::Error
+     raise ErrorException.new(ex.message, NONE) if ex.os_error == Errno::EPIPE
       raise ex
     end
     return NONE
@@ -405,23 +400,41 @@ i    case exp
     end
   end
 
+  private macro c(name, arity, body, succ)
+    Environment.new(Sym.interned({{name}}),
+                    Intrinsic.new({{name}}, {{arity}}, ->(x : Cell?) {{body}}),
+                    {{succ}})
+  end
+
+  private macro val(x)
+    ({{x}}).as(Val)
+  end
+
   private G1 =
-          c("+" , 2,
-            { val add(fst(x).as(Number), snd(x).as(Number)) },
-            c("-" , 2,
-              { val subtract(fst(x).as(Number), snd(x).as(Number)) },
-              c("*" , 2,
-                { val multiply(fst(x).as(Number), snd(x).as(Number)) },
-                c("<" , 2,
-                  { val(compare(fst(x).as(Number), snd(x).as(Number)) < 0) },
-                  c("=" , 2,
-                    { val(compare(fst(x).as(Number), snd(x).as(Number)) == 0)
+          c("+", 2, {
+              val add(fst(x).as(Number), snd(x).as(Number))
+            },
+            c("-", 2, {
+                val subtract(fst(x).as(Number), snd(x).as(Number))
+              },
+              c("*", 2, {
+                  val multiply(fst(x).as(Number), snd(x).as(Number))
+                },
+                c("<", 2, {
+                    val(compare(fst(x).as(Number), snd(x).as(Number)) < 0)
+                  },
+                  c("=", 2, {
+                      val(compare(fst(x).as(Number), snd(x).as(Number)) == 0)
                     },
-                    c("error", 2, { raise ErrorException.new(fst(x), snd(x)) },
-                      c("globals", 0, { val globals },
-                        Environment.new(S_CALLCC, S_CALLCC,
-                                        Environment.new(S_APPLY, S_APPLY,
-                                                        nil)))))))))
+                    c("number?", 1, {
+                        val(Number === fst(x))
+                      },
+                      c("error", 2, {
+                          raise ErrorException.new(fst(x), snd(x))
+                        },
+                        c("globals", 0, { val globals },
+                          nil))))))))
+
   # The global environment
   GLOBAL_ENV = Environment.new(
     nil,                        # frame marker
@@ -430,17 +443,20 @@ i    case exp
       c("cdr", 1, { fst(x).as(Cell).cdr },
         c("cons", 2, { val Cell.new(fst(x), snd(x)) },
           c("eq?", 2, { val eq?(fst(x), snd(x)) },
-            c("eqv?", 2, { val(fst(x) == snd(x)) },
-              c("pair?", 1, { val(Cell === fst(x)) },
-                c("null?", 1, { val fst(x).nil? },
-                  c("not", 1, { val(false == fst(x)) },
-                    c("list", -1, { val x },
-                      c("display", 1, { val display(fst(x)) },
-                        c("newline", 0, { val newline },
-                          c("read", 0, {read_expression },
-                            c("eof-object?", 1, { val(EOF == fst(x)) },
-                              c("symbol?", 1, { val(Sym === fst(x)) },
-                                G1)))))))))))))))
+            c("pair?", 1, { val(Cell === fst(x)) },
+              c("null?", 1, { val fst(x).nil? },
+                c("not", 1, { val(false == fst(x)) },
+                  c("list", -1, { val x },
+                    c("display", 1, { val display(fst(x)) },
+                      c("newline", 0, { val newline },
+                        c("read", 0, {read_expression },
+                          c("eof-object?", 1, { val(EOF == fst(x)) },
+                            c("symbol?", 1, { val(Sym === fst(x)) },
+                              Environment.new(
+                                S_CALLCC, CALLCC_OBJ,
+                                Environment.new(
+                                  S_APPLY, APPLY_OBJ,
+                                  G1))))))))))))))))
 
   # ----------------------------------------------------------------------
 
@@ -570,11 +586,11 @@ i    case exp
              : Tuple(Val, Environment)
     loop {
       case func
-      when S_CALLCC
+      when CALLCC_OBJ
         k.push_RestoreEnv(env)
         func = arg.as(Cell).car
         arg = Cell.new(Continuation.new(k), nil)
-      when S_APPLY
+      when APPLY_OBJ
         func = arg.as(Cell).car
         arg = arg.as(Cell).cdr.as(Cell).car.as(Cell?)
       else
