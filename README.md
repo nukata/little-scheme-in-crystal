@@ -1,6 +1,6 @@
 # A Little Scheme in Crystal
 
-This is a small interpreter of a subset of Scheme written in Crystal 0.34.
+This is a small interpreter of a subset of Scheme written in Crystal 0.36.
 It implements almost the same language as
 
 - [little-scheme-in-cs](https://github.com/nukata/little-scheme-in-cs)

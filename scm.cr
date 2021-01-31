@@ -1,6 +1,6 @@
 #!/usr/bin/env crystal
 # -*- coding: utf-8 -*-
-# A Little Scheme in Crystal 0.34, v0.2 R02.03.17/R02.04.08 by SUZUKI Hisao
+# A Little Scheme in Crystal 0.36, v0.2.1 R02.03.17/R03.01.31 by SUZUKI Hisao
 
 require "big"
 
@@ -656,12 +656,12 @@ i    case exp
   # Read an expression from tokens.
   # Tokens will be left with the rest of the token strings if any.
   private def self.read_from_tokens(tokens) : Val
-    token = tokens.shift
+    token = tokens.shift        # *.shift may raise IndexError.
     case token
     when "("
       z = Cell.new(nil, nil)
       y = z
-      until tokens.first == ")"
+      until tokens.first == ")" # *.first may raise Enumerable::EmptyError.
         if tokens.first == "."
           tokens.shift
           y.cdr = read_from_tokens tokens
@@ -704,7 +704,7 @@ i    case exp
       old = STDIN_TOKENS.dup
       begin
         return read_from_tokens STDIN_TOKENS
-      rescue IndexError
+      rescue IndexError | Enumerable::EmptyError
         print old.empty? ? prompt1 : prompt2
         STDOUT.flush
         line = STDIN.gets
@@ -732,7 +732,6 @@ i    case exp
         result = evaluate(exp, GLOBAL_ENV)
       rescue ex
         puts ex
-        # raise
       else
         puts stringify result unless NONE == result
       end
