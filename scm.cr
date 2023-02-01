@@ -1,6 +1,6 @@
 #!/usr/bin/env crystal
 # -*- coding: utf-8 -*-
-# A Little Scheme in Crystal 0.36, v0.2.1 R02.03.17/R03.01.31 by SUZUKI Hisao
+# A Little Scheme in Crystal 1.7, v0.2.2 R02.03.17/R05.02.02 by SUZUKI Hisao
 
 require "big"
 
@@ -8,19 +8,19 @@ module LittleScheme
   LS = LittleScheme
 
   # Convert an Int64 into an Int32 or a BigInt.
-  def self.normalize(x : Int64): (Int32 | BigInt)
+  def self.normalize(x : Int64) : (Int32 | BigInt)
     i = x.to_i32!
     return (i == x) ? i : x.to_big_i
   end
 
   # Convert a BigInt into an Int32 if possible.
-  def self.normalize(x : BigInt): (Int32 | BigInt)
+  def self.normalize(x : BigInt) : (Int32 | BigInt)
     i = x.to_i32!
     return (i == x) ? i : x
   end
 
   # x + y
-  def self.add(x : Number, y : Number): Number
+  def self.add(x : Number, y : Number) : Number
     if x.is_a?(Int32) && y.is_a?(Int32)
       return normalize(x.to_i64 + y.to_i64)
     elsif x.is_a?(Float64) || y.is_a?(Float64)
@@ -31,7 +31,7 @@ module LittleScheme
   end
 
   # x - y
-  def self.subtract(x : Number, y : Number): Number
+  def self.subtract(x : Number, y : Number) : Number
     if x.is_a?(Int32) && y.is_a?(Int32)
       return normalize(x.to_i64 - y.to_i64)
     elsif x.is_a?(Float64) || y.is_a?(Float64)
@@ -42,7 +42,7 @@ module LittleScheme
   end
 
   # x * y
-  def self.multiply(x : Number, y : Number): Number
+  def self.multiply(x : Number, y : Number) : Number
     if x.is_a?(Int32) && y.is_a?(Int32)
       return normalize(x.to_i64 * y.to_i64)
     elsif x.is_a?(Float64) || y.is_a?(Float64)
@@ -53,7 +53,7 @@ module LittleScheme
   end
 
   # x <=> y
-  def self.compare(x : Number, y : Number): Int32
+  def self.compare(x : Number, y : Number) : Int32
     if x.is_a?(Int32) && y.is_a?(Int32)
       return x.to_i64 <=> y.to_i64
     elsif x.is_a?(Float64) || y.is_a?(Float64)
@@ -312,7 +312,7 @@ module LittleScheme
 
   # Convert an expression to a string.
   def self.stringify(exp, quote=true)
-i    case exp
+    case exp
     when nil
       return "()"
     when false
@@ -390,7 +390,7 @@ i    case exp
     return NONE
   end
 
-  private def self.eq?(x : Val, y : Val): Bool
+  private def self.eq?(x : Val, y : Val) : Bool
     if x.class != y.class
       return false
     elsif x.is_a?(Reference) && y.is_a?(Reference)
